@@ -43,6 +43,20 @@ if [[ "${AGENT_POLICY}" == "yes" ]]; then
 	agent_policy_file="$(readlink -f -v "${AGENT_POLICY_FILE:-"${script_dir}/../../../src/kata-opa/allow-all.rego"}")"
 fi
 
+INSIDE_CONTAINER=${INSIDE_CONTAINER:-""}
+IMAGE_REGISTRY=${IMAGE_REGISTRY:-""}
+http_proxy=${http_proxy:-""}
+https_proxy=${https_proxy:-""}
+AGENT_POLICY_FILE=${AGENT_POLICY_FILE:-""}
+GRACEFUL_EXIT=${GRACEFUL_EXIT:-""}
+USE_DOCKER=${USE_DOCKER:-""}
+USE_PODMAN=${USE_PODMAN:-""}
+EXTRA_PKGS=${EXTRA_PKGS:-""}
+
+NVIDIA_GPU_STACK=${NVIDIA_GPU_STACK:-""}
+nvidia_rootfs="${script_dir}/nvidia/nvidia_rootfs.sh"
+source "$nvidia_rootfs"
+
 #For cross build
 CROSS_BUILD=${CROSS_BUILD:-false}
 BUILDX=""
@@ -62,6 +76,29 @@ if [ "${CROSS_BUILD}" == "true" ]; then
 	fi
 fi
 
+# The list of systemd units and files that are not needed in Kata Containers
+readonly -a systemd_units=(
+	"systemd-coredump@"
+	"systemd-journald"
+	"systemd-journald-dev-log"
+	"systemd-journal-flush"
+	"systemd-random-seed"
+	"systemd-timesyncd"
+	"systemd-tmpfiles-setup"
+	"systemd-udevd"
+	"systemd-udevd-control"
+	"systemd-udevd-kernel"
+	"systemd-udev-trigger"
+	"systemd-update-utmp"
+)
+
+readonly -a systemd_files=(
+	"systemd-bless-boot-generator"
+	"systemd-fstab-generator"
+	"systemd-getty-generator"
+	"systemd-gpt-auto-generator"
+	"systemd-tmpfiles-cleanup.timer"
+)
 
 handle_error() {
 	local exit_code="${?}"
@@ -516,6 +553,7 @@ build_rootfs_distro()
 			--env EXTRA_PKGS="${EXTRA_PKGS}" \
 			--env OSBUILDER_VERSION="${OSBUILDER_VERSION}" \
 			--env OS_VERSION="${OS_VERSION}" \
+			--env VARIANT="${VARIANT}" \
 			--env INSIDE_CONTAINER=1 \
 			--env SECCOMP="${SECCOMP}" \
 			--env SELINUX="${SELINUX}" \
@@ -525,6 +563,7 @@ build_rootfs_distro()
 			--env HOME="/root" \
 			--env AGENT_POLICY="${AGENT_POLICY}" \
 			--env CONFIDENTIAL_GUEST="${CONFIDENTIAL_GUEST}" \
+			--env NVIDIA_GPU_STACK="${NVIDIA_GPU_STACK}" \
 			-v "${repo_dir}":"/kata-containers" \
 			-v "${ROOTFS_DIR}":"/rootfs" \
 			-v "${script_dir}/../scripts":"/scripts" \
@@ -762,6 +801,8 @@ EOF
 	info "Create /etc/resolv.conf file in rootfs if not exist"
 	touch "$dns_file"
 
+	delete_unnecessary_files
+
 	info "Creating summary file"
 	create_summary_file "${ROOTFS_DIR}"
 }
@@ -795,13 +836,31 @@ detect_host_distro()
 		"*suse*")
 			distro="suse"
 			;;
-		"clear-linux-os")
-			distro="clearlinux"
-			;;
 		*)
 			distro="$ID"
 			;;
 	esac
+}
+
+delete_unnecessary_files()
+{
+	info "Removing unneeded systemd services and sockets"
+	for u in "${systemd_units[@]}"; do
+		find "${ROOTFS_DIR}" \
+			\( -type f -o -type l \) \
+			\( -name "${u}.service" -o -name "${u}.socket" \) \
+			-exec echo "deleting {}" \; \
+			-exec rm -f {} \;
+	done
+
+	info "Removing unneeded systemd files"
+	for u in "${systemd_files[@]}"; do
+		find "${ROOTFS_DIR}" \
+			\( -type f -o -type l \) \
+			-name "${u}" \
+			-exec echo "deleting {}" \; \
+			-exec rm -f {} \;
+	done
 }
 
 main()
@@ -822,6 +881,18 @@ main()
 
 	init="${ROOTFS_DIR}/sbin/init"
 	setup_rootfs
+
+	if [ "${VARIANT}" = "nvidia-gpu" ]; then
+		setup_nvidia_gpu_rootfs_stage_one
+		setup_nvidia_gpu_rootfs_stage_two
+		return $?
+	fi
+
+	if [ "${VARIANT}" = "nvidia-gpu-confidential" ]; then
+		setup_nvidia_gpu_rootfs_stage_one "confidential"
+		setup_nvidia_gpu_rootfs_stage_two "confidential"
+		return $?
+	fi
 }
 
 main $*

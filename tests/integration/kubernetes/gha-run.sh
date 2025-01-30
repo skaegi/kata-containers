@@ -26,6 +26,7 @@ DOCKER_TAG=${DOCKER_TAG:-kata-containers-latest}
 KATA_DEPLOY_WAIT_TIMEOUT=${KATA_DEPLOY_WAIT_TIMEOUT:-600}
 SNAPSHOTTER_DEPLOY_WAIT_TIMEOUT=${SNAPSHOTTER_DEPLOY_WAIT_TIMEOUT:-8m}
 KATA_HYPERVISOR=${KATA_HYPERVISOR:-qemu}
+CONTAINER_RUNTIME=${CONTAINER_RUNTIME:-containerd}
 KBS=${KBS:-false}
 KBS_INGRESS=${KBS_INGRESS:-}
 KUBERNETES="${KUBERNETES:-}"
@@ -80,21 +81,37 @@ EOF
 			containerd_config_file="/var/lib/rancher/k3s/agent/etc/containerd/config.toml.tmpl"
 			sudo cp /var/lib/rancher/k3s/agent/etc/containerd/config.toml "${containerd_config_file}"
 			;;
+		kubeadm)
+			containerd_config_file="/etc/containerd/config.toml"
+			;;
 		*) >&2 echo "${KUBERNETES} flavour is not supported"; exit 2 ;;
 	esac
 
 	# We're not using this with baremetal machines, so we're fine on cutting
 	# corners here and just append this to the configuration file.
-	cat<<EOF | sudo tee -a "${containerd_config_file}"
+	# Check if the "devmapper" plugin section exists in the file
+	if grep -q 'plugins."io.containerd.snapshotter.v1.devmapper"' "${containerd_config_file}"; then
+	    echo "devmapper section found. Updating pool_name and base_image_size..."
+	    sudo sed -i '/\[plugins."io.containerd.snapshotter.v1.devmapper"\]/,/\[plugins\./ {
+	        s/pool_name = ".*"/pool_name = "contd-thin-pool"/
+	        s/base_image_size = ".*"/base_image_size = "4096MB"/
+	    }' "${containerd_config_file}"
+	else
+	    echo "devmapper section not found. Appending to the config file..."
+		cat<<EOF | sudo tee -a "${containerd_config_file}"
 [plugins."io.containerd.snapshotter.v1.devmapper"]
   pool_name = "contd-thin-pool"
   base_image_size = "4096MB"
 EOF
+	fi
 
 	case "${KUBERNETES}" in
 		k3s)
 			sudo sed -i -e 's/snapshotter = "overlayfs"/snapshotter = "devmapper"/g' "${containerd_config_file}"
 			sudo systemctl restart k3s ;;
+		kubeadm)
+			sudo sed -i -e 's/snapshotter = "overlayfs"/snapshotter = "devmapper"/g' "${containerd_config_file}"
+			sudo systemctl restart containerd ;;
 		*) >&2 echo "${KUBERNETES} flavour is not supported"; exit 2 ;;
 	esac
 
@@ -183,7 +200,7 @@ function deploy_kata() {
 	fi
 
 	if [ "${KATA_HOST_OS}" = "cbl-mariner" ]; then
-		yq -i ".env.allowedHypervisorAnnotations = \"image kernel default_vcpus kernel_params\"" "${values_yaml}"
+		yq -i ".env.allowedHypervisorAnnotations = \"image kernel default_vcpus\"" "${values_yaml}"
 		yq -i ".env.hostOS = \"${KATA_HOST_OS}\""                                   "${values_yaml}"
 	fi
 
@@ -561,6 +578,7 @@ function main() {
 		install-kbs-client) install_kbs_client ;;
 		install-kubectl) install_kubectl ;;
 		get-cluster-credentials) get_cluster_credentials ;;
+		deploy-csi-driver) return 0 ;;
 		deploy-kata) deploy_kata ;;
 		deploy-kata-aks) deploy_kata "aks" ;;
 		deploy-kata-kcli) deploy_kata "kcli" ;;
@@ -582,6 +600,7 @@ function main() {
 		cleanup-garm) cleanup "garm" ;;
 		cleanup-zvsi) cleanup "zvsi" ;;
 		cleanup-snapshotter) cleanup_snapshotter ;;
+		delete-csi-driver) return 0 ;;
 		delete-coco-kbs) delete_coco_kbs ;;
 		delete-cluster) cleanup "aks" ;;
 		delete-cluster-kcli) delete_cluster_kcli ;;

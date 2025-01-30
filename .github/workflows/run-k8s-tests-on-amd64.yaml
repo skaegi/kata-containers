@@ -49,13 +49,14 @@ jobs:
       DOCKER_REGISTRY: ${{ inputs.registry }}
       DOCKER_REPO: ${{ inputs.repo }}
       DOCKER_TAG: ${{ inputs.tag }}
-      PR_NUMBER: ${{ inputs.pr-number }}
+      GH_PR_NUMBER: ${{ inputs.pr-number }}
       KATA_HYPERVISOR: ${{ matrix.vmm }}
       KUBERNETES: ${{ matrix.k8s }}
       KUBERNETES_EXTRA_PARAMS: ${{ matrix.container_runtime != 'crio' && '' || '--cri-socket remote:unix:///var/run/crio/crio.sock --kubelet-extra-args --cgroup-driver="systemd"' }}
       SNAPSHOTTER: ${{ matrix.snapshotter }}
       USING_NFD: "false"
       K8S_TEST_HOST_TYPE: all
+      CONTAINER_RUNTIME: ${{ matrix.container_runtime }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -85,11 +86,11 @@ jobs:
 
       - name: Install `bats`
         run: bash tests/integration/kubernetes/gha-run.sh install-bats
-  
+
       - name: Run tests
         timeout-minutes: 30
         run: bash tests/integration/kubernetes/gha-run.sh run-tests
-  
+
       - name: Collect artifacts ${{ matrix.vmm }}
         if: always()
         run: bash tests/integration/kubernetes/gha-run.sh collect-artifacts
@@ -98,7 +99,7 @@ jobs:
       - name: Archive artifacts ${{ matrix.vmm }}
         uses: actions/upload-artifact@v4
         with:
-          name: k8s-tests-${{ matrix.vmm }}-${{ matrix.snapshotter }}-${{ matrix.k8s }}-${{ matrix.instance }}-${{ inputs.tag }}
+          name: k8s-tests-${{ matrix.vmm }}-${{ matrix.snapshotter }}-${{ matrix.k8s }}-${{ inputs.tag }}
           path: /tmp/artifacts
           retention-days: 1
 

@@ -88,8 +88,8 @@ assets:
     qemu:
       description: "VMM that uses KVM"
       url: "https://github.com/qemu/qemu"
-      version: "v8.2.4"
-      tag: "v8.2.4"
+      version: "v9.1.2"
+      tag: "v9.1.2"
       # Do not include any non-full release versions
       # Break the line *without CR or space being appended*, to appease
       # yamllint, and note the deliberate ' ' at the end of the expression.
@@ -116,41 +116,38 @@ assets:
     url: "https://github.com/kata-containers/kata-containers/tools/osbuilder"
     architecture:
       aarch64:
-        name: &default-image-name "ubuntu"
-        version: &default-image-version "latest"
+        name: "ubuntu"
+        version: "jammy" # 22.04 LTS
         nvidia-gpu:
-          name: *default-image-name
-          version: "jammy"
+          name: "ubuntu"
+          version: "jammy" # 22.04 LTS
         nvidia-gpu-confidential:
-          name: *default-image-name
-          version: "jammy"
+          name: "ubuntu"
+          version: "jammy" # 22.04 LTS
       ppc64le:
-        name: *default-image-name
-        version: *default-image-version
+        name: "ubuntu"
+        version: "jammy" # 22.04 LTS
       s390x:
-        name: *default-image-name
-        version: *default-image-version
+        name: "ubuntu"
+        version: "jammy" # 22.04 LTS
         confidential:
-          name: *default-image-name
-          version: *default-image-version
+          name: "ubuntu"
+          version: "jammy" # 22.04 LTS
       x86_64:
-        name: *default-image-name
-        version: *default-image-version
+        name: "ubuntu"
+        version: "jammy" # 22.04 lTS
         confidential:
-          name: *default-image-name
-          version: *default-image-version
+          name: "ubuntu"
+          version: "oracular" # 24.10
         mariner:
           name: "cbl-mariner"
-          version: "2.0"
+          version: "3.0"
         nvidia-gpu:
-          name: *default-image-name
-          version: "jammy"
+          name: "ubuntu"
+          version: "jammy" # 22.04 LTS
         nvidia-gpu-confidential:
-          name: *default-image-name
-          version: "jammy"
-
-    meta:
-      image-type: *default-image-name
+          name: "ubuntu"
+          version: "jammy" # 22.04 LTS
 
   initrd:
     description: |
@@ -159,46 +156,46 @@ assets:
     url: "https://github.com/kata-containers/kata-containers/tools/osbuilder"
     architecture:
       aarch64:
-        name: &default-initrd-name "alpine"
-        version: &default-initrd-version "3.18"
+        name: "alpine"
+        version: "3.18"
         nvidia-gpu:
           name: "ubuntu"
-          version: "jammy"
+          version: "jammy" # 22.04 LTS
         nvidia-gpu-confidential:
           name: "ubuntu"
           version: "jammy"
       # Do not use Alpine on ppc64le & s390x, the agent cannot use musl because
       # there is no such Rust target
       ppc64le:
-        name: &glibc-initrd-name "ubuntu"
-        version: &glibc-initrd-version "20.04"
+        name: "ubuntu"
+        version: "jammy" # 22.04 LTS
       s390x:
-        name: *glibc-initrd-name
-        version: *glibc-initrd-version
+        name: "ubuntu"
+        version: "jammy" # 22.04 LTS
         confidential:
-          name: *glibc-initrd-name
-          version: *glibc-initrd-version
+          name: "ubuntu"
+          version: "jammy" # 22.04 LTS
       x86_64:
-        name: *default-initrd-name
-        version: *default-initrd-version
+        name: "alpine"
+        version: "3.18"
         confidential:
-          name: *glibc-initrd-name
-          version: *glibc-initrd-version
+          name: "ubuntu"
+          version: "focal" # 20.04 LTS
         nvidia-gpu:
-          name: *glibc-initrd-name
-          version: "jammy"
+          name: "ubuntu"
+          version: "jammy" # 22.04 LTS
         nvidia-gpu-confidential:
-          name: *glibc-initrd-name
-          version: "jammy"
+          name: "ubuntu"
+          version: "jammy" # 22.04 LTS
 
   kernel:
     description: "Linux kernel optimised for virtual machines"
     url: "https://cdn.kernel.org/pub/linux/kernel/v6.x/"
-    version: "v6.1.62"
+    version: "v6.12.8"
     confidential:
       description: "Linux kernel with x86_64 TEEs (SEV, SNP, and TDX) support"
       url: "https://cdn.kernel.org/pub/linux/kernel/v6.x/"
-      version: "v6.7"
+      version: "v6.12.8"
 
   kernel-arm-experimental:
     description: "Linux kernel with cpu/mem hotplug support on arm64"
@@ -207,7 +204,7 @@ assets:
 
   kernel-dragonball-experimental:
     description: "Linux kernel with Dragonball VMM optimizations like upcall"
-    url: "https://cdn.kernel.org/pub/linux/kernel/v5.x/"
+    url: "https://cdn.kernel.org/pub/linux/kernel/v6.x/"
     version: "v6.1.62"
 
 externals:
@@ -231,19 +228,19 @@ externals:
   coco-guest-components:
     description: "Provides attested key unwrapping for image decryption"
     url: "https://github.com/confidential-containers/guest-components/"
-    version: "v0.10.0"
-    toolchain: "1.76.0"
+    version: "3df6c412059f29127715c3fdbac9fa41f56cfce4"
+    toolchain: "1.80.0"
 
   coco-trustee:
     description: "Provides attestation and secret delivery components"
     url: "https://github.com/confidential-containers/trustee"
-    version: "f287fcd60b0b3ddbef5546d646669813b9e68f8d"
+    version: "68e2a8d25dbfa012b422ff464f31d18f3afa6677"
     # image / ita_image and image_tag / ita_image_tag must be in sync
     image: "ghcr.io/confidential-containers/staged-images/kbs"
-    image_tag: "f287fcd60b0b3ddbef5546d646669813b9e68f8d"
+    image_tag: "68e2a8d25dbfa012b422ff464f31d18f3afa6677"
     ita_image: "ghcr.io/confidential-containers/staged-images/kbs-ita-as"
-    ita_image_tag: "f287fcd60b0b3ddbef5546d646669813b9e68f8d-x86_64"
-    toolchain: "1.74.0"
+    ita_image_tag: "68e2a8d25dbfa012b422ff464f31d18f3afa6677-x86_64"
+    toolchain: "1.76.0"
 
   crio:
     description: |
@@ -270,6 +267,11 @@ externals:
     # As we don't want to disrupt what we have on the `tests` repo, let's
     # create a "latest" entry and use that for the GitHub actions tests.
     latest: "v1.29"
+
+  runc:
+    description: "CLI tool for spawning and running containers"
+    url: "https://github.com/opencontainers/runc"
+    latest: "v1.2"
 
   cryptsetup:
     description: "A utility used to setup disk encryption, integrity protection"
@@ -349,14 +351,9 @@ externals:
   virtiofsd:
     description: "vhost-user virtio-fs device backend written in Rust"
     url: "https://gitlab.com/virtio-fs/virtiofsd"
-    version: "v1.8.0"
-    toolchain: "1.72.0"
-    meta:
-      # From https://gitlab.com/virtio-fs/virtiofsd/-/releases/v1.8.0,
-      # this is the link labelled virtiofsd-v1.8.0.zip
-      #
-      # yamllint disable-line rule:line-length
-      binary: "https://gitlab.com/virtio-fs/virtiofsd/uploads/9ec473efd0203219d016e66aac4190aa/virtiofsd-v1.8.0.zip"
+    # v1.13.0 + seccomp patch allowing the tkill syscall
+    version: "cecc61bca981ab42aae6ec490dfd59965e79025e"
+    toolchain: "1.83.0"
 
   xurls:
     description: |

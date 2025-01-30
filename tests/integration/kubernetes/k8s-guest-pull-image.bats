@@ -15,7 +15,7 @@ setup() {
 
     [ "${SNAPSHOTTER:-}" = "nydus" ] || skip "None snapshotter was found but this test requires one"
 
-    setup_common
+    setup_common || die "setup_common failed"
     get_pod_config_dir
     unencrypted_image="quay.io/prometheus/busybox:latest"
     image_pulled_time_less_than_default_time="ghcr.io/confidential-containers/test-container:rust-1.79.0" # unpacked size: 1.41GB
@@ -101,7 +101,7 @@ setup() {
     cat $storage_config
 
     # Create persistent volume and persistent volume claim
-    kubectl create -f $storage_config
+    retry_kubectl_apply $storage_config
 
     pod_config=$(mktemp "${BATS_FILE_TMPDIR}/$(basename "${pod_config_template}").XXX")
     IMAGE="$image_pulled_time_less_than_default_time" NODE_NAME="$node" envsubst < "$pod_config_template" > "$pod_config"
@@ -146,7 +146,7 @@ setup() {
     cat $storage_config
 
     # Create persistent volume and persistent volume claim
-    kubectl create -f $storage_config
+    retry_kubectl_apply $storage_config
 
     pod_config=$(mktemp "${BATS_FILE_TMPDIR}/$(basename "${pod_config_template}").XXX")
     IMAGE="$large_image" NODE_NAME="$node" envsubst < "$pod_config_template" > "$pod_config"
@@ -171,10 +171,10 @@ setup() {
     echo "Pod $pod_config file:"
     cat $pod_config
 
-    # The pod should be failed because the default timeout of CreateContainerRequest is 60s
+    # The pod should be failed because the image is too large to be pulled in the timeout
     assert_pod_fail "$pod_config"
-    assert_logs_contain "$node" kata "$node_start_time" \
-		'CreateContainerRequest timed out'
+    assert_logs_contain "$node" kata "$node_start_time" 'createContainer failed'
+    assert_logs_contain "$node" kata "$node_start_time" 'timeout'
 }
 
 @test "Test we can pull a large image inside the guest with large createcontainer timeout" {
@@ -191,7 +191,7 @@ setup() {
     cat $storage_config
 
     # Create persistent volume and persistent volume claim
-    kubectl create -f $storage_config
+    retry_kubectl_apply $storage_config
 
     pod_config=$(mktemp "${BATS_FILE_TMPDIR}/$(basename "${pod_config_template}").XXX")
     IMAGE="$large_image" NODE_NAME="$node" envsubst < "$pod_config_template" > "$pod_config"

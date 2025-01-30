@@ -84,7 +84,7 @@ auto_generate_policy_enabled() {
 adapt_common_policy_settings_for_tdx() {
 	local settings_dir=$1
 
-	info "Adapting common policy settings for TDX or SNP"
+	info "Adapting common policy settings for TDX, SNP, or the non-TEE development environment"
 	jq '.common.cpath = "/run/kata-containers" | .volumes.configMap.mount_point = "^$(cpath)/$(bundle-id)-[a-z0-9]{16}-"' "${settings_dir}/genpolicy-settings.json" > temp.json && sudo mv temp.json "${settings_dir}/genpolicy-settings.json"
 }
 
@@ -119,7 +119,7 @@ adapt_common_policy_settings() {
 	local settings_dir=$1
 
 	case "${KATA_HYPERVISOR}" in
-  		"qemu-tdx"|"qemu-snp")
+  		"qemu-tdx"|"qemu-snp"|"qemu-coco-dev")
 			adapt_common_policy_settings_for_tdx "${settings_dir}"
 			;;
   		"qemu-sev")
@@ -155,9 +155,6 @@ create_common_genpolicy_settings() {
 
 	cp "${default_genpolicy_settings_dir}/genpolicy-settings.json" "${genpolicy_settings_dir}"
 	cp "${default_genpolicy_settings_dir}/rules.rego" "${genpolicy_settings_dir}"
-
-	# Set the default namespace of Kata CI tests in the genpolicy settings.
-	set_namespace_to_policy_settings "${genpolicy_settings_dir}" "${TEST_CLUSTER_NAMESPACE}"
 }
 
 # If auto-generated policy testing is enabled, make a copy of the common genpolicy settings
@@ -271,21 +268,6 @@ add_copy_from_guest_to_policy_settings() {
 
 	exec_command=(tar cf - "${copied_file}")
 	add_exec_to_policy_settings "${policy_settings_dir}" "${exec_command[@]}"
-}
-
-# Change genpolicy settings to use a pod namespace different than "default".
-set_namespace_to_policy_settings() {
-	local -r settings_dir="$1"
-	local -r namespace="$2"
-
-	auto_generate_policy_enabled || return 0
-
-	info "${settings_dir}/genpolicy-settings.json: namespace: ${namespace}"
-	jq --arg namespace "${namespace}" \
-		'.cluster_config.default_namespace |= $namespace' \
-		"${settings_dir}/genpolicy-settings.json" > \
-		"${settings_dir}/new-genpolicy-settings.json"
-	mv "${settings_dir}/new-genpolicy-settings.json" "${settings_dir}/genpolicy-settings.json"
 }
 
 hard_coded_policy_tests_enabled() {
